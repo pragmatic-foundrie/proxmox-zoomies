@@ -31,6 +31,14 @@ Optional settings:
 | --- | --- | --- |
 | `var_zoomies_url` | `http://<container-ip>:8080` | External URL GitHub and browsers use |
 | `var_zoomies_admin_pass` | generated | Admin password (12+ characters) |
+| `COMMUNITY_SCRIPTS_URL` | this repo's `main` branch | Where the engine fetches `install/zoomies-install.sh` from. Point it at a fork or branch to test changes |
+
+To test a branch, set both the script URL and the scripts base:
+
+```bash
+COMMUNITY_SCRIPTS_URL=https://raw.githubusercontent.com/pragmatic-foundrie/proxmox-zoomies/<branch> \
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/pragmatic-foundrie/proxmox-zoomies/<branch>/ct/zoomies.sh)"
+```
 
 At the end the script prints the URL and the `admin` password. Sign in, connect GitHub from the Installations page (Zoomies creates the GitHub App), and the first pool is created for you.
 
