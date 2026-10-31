@@ -2,7 +2,7 @@
 
 [Proxmox VE community-scripts](https://github.com/community-scripts/ProxmoxVE) style script that creates a VM running [Zoomies](https://zoomies.sh/), a self-hosted GitHub Actions runner fleet controller.
 
-Zoomies runs each job in a Docker container. Earlier versions used an LXC, where Docker shares the Proxmox host kernel and runner containers had trouble reaching the internet. A VM gives Docker its own kernel, so containers get normal bridge networking and NAT for outbound traffic. It also removes the need for `nesting`, `keyctl` and the relaxed seccomp filter.
+Zoomies runs each job in a Docker container. Earlier versions used an LXC, where Docker shares the Proxmox host kernel and runner containers had trouble reaching the internet. A VM gives Docker its own kernel, so containers get normal bridge networking and NAT for outbound traffic. It also removes the need for `nesting` and `keyctl`.
 
 ## Files
 
@@ -77,6 +77,7 @@ The LXC scripts (`ct/zoomies.sh`, `install/zoomies-install.sh`) have been remove
 
 ## Security notes
 
+- The `zoomies` unit's seccomp filter kills the controller with SIGSYS (a restart every 5 seconds, and a sign-in page that says the controller did not answer), so the VM adds `/etc/systemd/system/zoomies.service.d/10-seccomp.conf`. It keeps the `@system-service` allowlist but drops the `@privileged`/`@resources` deny list, and makes other filtered calls fail with `EPERM`. The rest of the unit's hardening is unchanged. `update` adds it to VMs built without it.
 - Zoomies serves plain HTTP on port 8080 by default, so the admin password crosses your network unencrypted. Put a TLS reverse proxy in front before exposing it beyond your LAN.
 - The admin password is staged in the image at `/root/.zoomies-admin-pass` (mode 0600) and deleted once `zoomies init` succeeds.
 - Without Cloud-Init the VM console logs in as `root` with no password. Anyone with console access to the VM in Proxmox has root. Set a root password (`passwd`) if that matters to you.
