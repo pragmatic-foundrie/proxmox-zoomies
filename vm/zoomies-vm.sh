@@ -10,7 +10,7 @@
 # ==============================================================================
 # Runs on the Proxmox host. A full VM rather than an LXC so Docker gets its own
 # kernel: runner containers get normal bridge networking and NAT for outbound
-# traffic, and nothing needs nesting, keyctl or a relaxed seccomp filter.
+# traffic, and nothing needs nesting or keyctl.
 
 export COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://raw.githubusercontent.com/pragmatic-foundrie/proxmox-zoomies/main}"
 source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/pve/vm-core.func")
@@ -173,7 +173,7 @@ EOF
 systemctl enable docker
 systemctl restart docker
 
-# Zoomies binary
+# Zoomies binary, plus the seccomp drop-in for its unit (see `update`)
 /usr/local/bin/update --install-only
 
 # Answer file for zoomies init. It holds the admin password, so it lives only
@@ -233,6 +233,23 @@ amd64) arch=amd64 ;;
 arm64) arch=arm64 ;;
 *) echo "Unsupported architecture: $(dpkg --print-architecture)" >&2; exit 1 ;;
 esac
+
+# The generated zoomies unit allows @system-service but denies @privileged and
+# @resources, and the kernel kills the controller with SIGSYS the first time it
+# makes one of those calls (fchown when it rewrites a file, for example), so
+# systemd restarts it every 5s. Keep the allowlist but make any other filtered
+# call fail with EPERM instead of killing the process. Written before
+# `zoomies init` on first boot, and added to VMs built without it.
+DROPIN="/etc/systemd/system/zoomies.service.d/10-seccomp.conf"
+if [[ ! -f "$DROPIN" ]]; then
+  mkdir -p "$(dirname "$DROPIN")"
+  printf '[Service]\nSystemCallFilter=\nSystemCallFilter=@system-service\nSystemCallErrorNumber=EPERM\n' >"$DROPIN"
+  systemctl daemon-reload
+  if systemctl is-enabled --quiet zoomies 2>/dev/null; then
+    echo "Added ${DROPIN}; restarting the controller"
+    systemctl restart zoomies
+  fi
+fi
 
 pin=$(tr -d '[:space:]' <"$PIN_FILE" 2>/dev/null || true)
 if [[ -n "$pin" && "$pin" != "latest" ]]; then
