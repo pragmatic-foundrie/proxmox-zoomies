@@ -1,31 +1,41 @@
-# proxmox-runaway
+# proxmox-zoomies
 
-A [Proxmox VE community-scripts](https://github.com/community-scripts/ProxmoxVE) style addon that installs [Runaway](https://www.runaway.sh/), a self-hosted orchestrator for ephemeral GitHub Actions runners.
+[Proxmox VE community-scripts](https://github.com/community-scripts/ProxmoxVE) style scripts that create an LXC running [Zoomies](https://zoomies.sh/), a self-hosted GitHub Actions runner fleet controller.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `tools/addon/runaway.sh` | Install / update / uninstall addon, modelled on the upstream `tools/addon/arcane.sh` |
-| `json/runaway.json` | Website metadata in the community-scripts JSON format |
+| `ct/zoomies.sh` | Runs on the Proxmox host: creates the LXC and handles updates |
+| `install/zoomies-install.sh` | Runs inside the LXC: installs Docker and Zoomies, then runs `zoomies init` |
+| `json/zoomies.json` | Website metadata in the community-scripts JSON format |
 
-## Why an addon and not a `ct/` script
+## What it installs
 
-Community-scripts `ct/` and `install/` scripts must be bare-metal; Docker is only allowed in `tools/addon/*.sh` scripts that manage a Docker Compose stack. Runaway's official quickstart is Docker Compose, and its agent launches runners as Docker containers, so it ships as an addon.
+- Debian 13, unprivileged, 2 vCPU / 4 GB RAM / 20 GB disk, nesting and keyctl on.
+- The `zoomies_linux_<arch>` release binary at `/usr/local/bin/zoomies` (amd64 and arm64).
+- Docker, used as the runner backend so each job gets its own ephemeral container.
+- `zoomies init` in native mode with an embedded agent (`mode: single`), so the controller runs as the `zoomies` systemd service, listening on port 8080.
 
 ## Usage
 
-1. Create a Debian LXC with nesting enabled (for example with the community [Docker LXC](https://community-scripts.github.io/ProxmoxVE/scripts?id=docker)).
-2. Inside that container, run:
+On the Proxmox host shell:
 
-   ```bash
-   var_runaway_repo="<Runaway git URL from https://www.runaway.sh/docs>" \
-     bash -c "$(curl -fsSL https://raw.githubusercontent.com/jt-pragmatic/proxmox-runaway/main/tools/addon/runaway.sh)"
-   ```
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/jt-pragmatic/proxmox-runaway/main/ct/zoomies.sh)"
+```
 
-   Leave `var_runaway_repo` unset to be prompted for it.
-3. Open `http://<container-ip>:3000`, create the admin account, add a GitHub org with a classic PAT, and create a scale set.
+Optional settings:
 
-The addon clones the repository to `/opt/runaway`, writes `/opt/runaway/.env` with freshly generated `RUNAWAY_MASTER_KEY`, `BETTER_AUTH_SECRET` and `RUNAWAY_LOCAL_AGENT_TOKEN`, and starts `docker-compose.example.yml`. Back up `RUNAWAY_MASTER_KEY`.
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `var_zoomies_url` | `http://<container-ip>:8080` | External URL GitHub and browsers use |
+| `var_zoomies_admin_pass` | generated | Admin password (12+ characters) |
 
-Update later with `update_runaway`, or re-run the addon to update or uninstall.
+At the end the script prints the URL and the `admin` password. Sign in, connect GitHub from the Installations page (Zoomies creates the GitHub App), and the first pool is created for you.
+
+Without a public `https://` external URL, GitHub can't deliver webhooks and Zoomies falls back to polling. Put a TLS reverse proxy in front for instant scaling.
+
+## Updating
+
+Run the same command inside the container (or `update` from its console). It deploys the newest release binary and runs `zoomies upgrade --no-download`, which backs up the database, updates the service units and restarts them.
