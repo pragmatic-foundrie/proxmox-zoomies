@@ -41,6 +41,21 @@ function update_script() {
     exit
   fi
 
+  # Containers installed before the seccomp drop-in crash-loop with SIGSYS
+  if [[ ! -f /etc/systemd/system/zoomies.service.d/10-lxc-seccomp.conf ]]; then
+    msg_info "Relaxing Zoomies seccomp filter"
+    mkdir -p /etc/systemd/system/zoomies.service.d
+    cat <<EOF >/etc/systemd/system/zoomies.service.d/10-lxc-seccomp.conf
+[Service]
+SystemCallFilter=
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+EOF
+    systemctl daemon-reload
+    systemctl restart zoomies
+    msg_ok "Relaxed Zoomies seccomp filter"
+  fi
+
   if check_for_gh_release "zoomies" "eyupio/zoomies"; then
     fetch_and_deploy_gh_release "zoomies" "eyupio/zoomies" "singlefile" "latest" "/usr/local/bin" "zoomies_linux_$(arch_resolve)"
 

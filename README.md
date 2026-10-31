@@ -52,6 +52,7 @@ Run the same command inside the container (or `update` from its console). It dep
 
 - Zoomies serves plain HTTP on port 8080 by default, so the admin password crosses your network unencrypted. Put a TLS reverse proxy in front before exposing it beyond your LAN.
 - Runners are Docker containers, so the LXC needs `nesting` and `keyctl`. That widens what the container can do compared with a plain LXC.
+- The `zoomies` unit's seccomp filter kills the controller with SIGSYS inside an LXC, so the scripts add `/etc/systemd/system/zoomies.service.d/10-lxc-seccomp.conf`. It keeps the `@system-service` allowlist but drops the `@privileged`/`@resources` deny list, and makes other filtered calls fail with `EPERM`. The rest of the unit's hardening is unchanged. `update` adds it to containers installed before this fix.
 - The Zoomies binary comes from the latest GitHub release without a pinned checksum. Only update from releases you trust.
 
 ## License
