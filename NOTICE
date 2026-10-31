@@ -3,7 +3,7 @@ Copyright (C) 2026 Pragmatic Foundrie
 
 This project is licensed under the GNU Affero General Public License v3.0 only (see LICENSE).
 
-The scripts in ct/ and install/ are derived in part from the community-scripts
+The scripts in vm/ are derived in part from the community-scripts
 ProxmoxVE project, which is licensed under the MIT License. The original license
 notice and permission terms follow.
 

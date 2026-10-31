@@ -5,7 +5,7 @@
     20
   ],
   "date_created": "2026-10-31",
-  "type": "ct",
+  "type": "vm",
   "updateable": true,
   "privileged": false,
   "architectures": [
@@ -21,7 +21,7 @@
   "install_methods": [
     {
       "type": "default",
-      "script": "ct/zoomies.sh",
+      "script": "vm/zoomies-vm.sh",
       "config_path": "/etc/zoomies/zoomies.yaml",
       "resources": {
         "cpu": 2,
@@ -42,7 +42,7 @@
       "label": "External URL",
       "type": "text",
       "required": false,
-      "help": "How GitHub and your browser reach Zoomies, e.g. https://zoomies.example.com. Defaults to http://<container-ip>:8080"
+      "help": "How GitHub and your browser reach Zoomies, e.g. https://zoomies.example.com. Defaults to http://<vm-ip>:8080"
     },
     {
       "name": "var_zoomies_admin_pass",
@@ -67,7 +67,11 @@
       "type": "warning"
     },
     {
-      "text": "Runners are Docker containers inside this LXC, which needs nesting and keyctl enabled.",
+      "text": "Runs as a full VM so Docker runner containers get normal bridge networking and outbound access. Docker and Zoomies install on first boot; follow progress in /var/log/zoomies-install.log.",
+      "type": "info"
+    },
+    {
+      "text": "Run `update` in the VM console to move to the latest Zoomies release.",
       "type": "info"
     }
   ]
