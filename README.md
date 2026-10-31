@@ -38,6 +38,7 @@ Optional settings:
 | --- | --- | --- |
 | `var_zoomies_url` | `http://<vm-ip>:8080` | External URL GitHub and browsers use |
 | `var_zoomies_admin_pass` | generated | Admin password (12+ characters) |
+| `var_zoomies_version` | `latest` | Zoomies release to install, e.g. `v1.3.8`. A pinned VM stays on it when `update` runs; edit `/etc/zoomies-version` in the VM (or set it to `latest`) to move |
 | `ZOOMIES_INSTALL_TIMEOUT` | `1200` | Seconds to wait for the first-boot install before printing the summary anyway |
 | `VM_UNATTENDED` | `0` | `1` skips the dialogs and uses the defaults; override them with `VM_VMID`, `VM_STORAGE`, `VM_CORES`, `VM_RAM`, `VM_DISK_SIZE`, `VM_BRIDGE`, `VM_VLAN`, `VM_HOSTNAME` and so on |
 
@@ -68,6 +69,7 @@ The LXC scripts (`ct/zoomies.sh`, `install/zoomies-install.sh`) have been remove
 
 ## Troubleshooting
 
+- `Invalid GitHub App configuration ... Default events are not supported by permissions: issue_comment` when connecting GitHub: Zoomies v1.4.0 and v1.4.1 ask GitHub for `issue_comment` events without the Pull requests or Issues permission unless you opt into the migration wizard. Either say yes to the migration wizard on the Connect GitHub screen, or create the VM with `var_zoomies_version=v1.3.8`.
 - `Could not install libguestfs-tools`: the script prints apt's error. Usually the `pve-enterprise` (or Ceph enterprise) repository is enabled without a subscription. Disable it under **Node > Updates > Repositories**, add the `no-subscription` repository, then check that `apt-get update && apt-get install -y libguestfs-tools` works on the host.
 - Install log inside the VM: `/var/log/zoomies-install.log`, or `journalctl -u zoomies-firstboot`.
 - A failed first-boot install runs again on the next boot. You can also rerun it with `systemctl restart zoomies-firstboot`.
