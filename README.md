@@ -68,6 +68,7 @@ The LXC scripts (`ct/zoomies.sh`, `install/zoomies-install.sh`) have been remove
 
 ## Troubleshooting
 
+- `Could not install libguestfs-tools`: the script prints apt's error. Usually the `pve-enterprise` (or Ceph enterprise) repository is enabled without a subscription. Disable it under **Node > Updates > Repositories**, add the `no-subscription` repository, then check that `apt-get update && apt-get install -y libguestfs-tools` works on the host.
 - Install log inside the VM: `/var/log/zoomies-install.log`, or `journalctl -u zoomies-firstboot`.
 - A failed first-boot install runs again on the next boot. You can also rerun it with `systemctl restart zoomies-firstboot`.
 - Check that runner containers can reach the internet: `docker run --rm curlimages/curl -sI https://github.com`.
