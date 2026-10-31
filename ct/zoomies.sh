@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# A script piped through curl can't tell the engine where it came from, so
+# point the scripts root (ct/, install/) at this repo explicitly.
+export COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://raw.githubusercontent.com/pragmatic-foundrie/proxmox-zoomies/main}"
 _cs_boot="${COMMUNITY_SCRIPTS_CORE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../../core}/core/build.func"
 source "$_cs_boot" 2>/dev/null || source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/core/build.func")
 
