@@ -1,0 +1,74 @@
+{
+  "name": "Zoomies",
+  "slug": "zoomies",
+  "categories": [
+    20
+  ],
+  "date_created": "2026-10-31",
+  "type": "ct",
+  "updateable": true,
+  "privileged": false,
+  "architectures": [
+    "amd64",
+    "arm64"
+  ],
+  "interface_port": 8080,
+  "documentation": "https://zoomies.sh/quickstart/",
+  "website": "https://zoomies.sh/",
+  "repository": "https://github.com/eyupio/zoomies",
+  "logo": null,
+  "description": "Zoomies is a lightweight, self-hosted GitHub Actions runner fleet controller. It authenticates with a GitHub App, scales ephemeral runners from webhooks, and runs as a single Go binary with SQLite and no Kubernetes.",
+  "install_methods": [
+    {
+      "type": "default",
+      "script": "ct/zoomies.sh",
+      "config_path": "/etc/zoomies/zoomies.yaml",
+      "resources": {
+        "cpu": 2,
+        "ram": 4096,
+        "hdd": 20,
+        "os": "Debian",
+        "version": "13"
+      }
+    }
+  ],
+  "default_credentials": {
+    "username": "admin",
+    "password": null
+  },
+  "app_vars": [
+    {
+      "name": "var_zoomies_url",
+      "label": "External URL",
+      "type": "text",
+      "required": false,
+      "help": "How GitHub and your browser reach Zoomies, e.g. https://zoomies.example.com. Defaults to http://<container-ip>:8080"
+    },
+    {
+      "name": "var_zoomies_admin_pass",
+      "label": "Admin Password",
+      "type": "password",
+      "secret": true,
+      "required": false,
+      "help": "Password for the admin account, at least 12 characters. Generated when left empty"
+    }
+  ],
+  "notes": [
+    {
+      "text": "The admin password is shown at the end of the installation.",
+      "type": "info"
+    },
+    {
+      "text": "Connect GitHub from the Installations page after signing in; Zoomies creates the GitHub App for you.",
+      "type": "info"
+    },
+    {
+      "text": "Without a public https external URL GitHub cannot deliver webhooks, so Zoomies falls back to polling and picks up jobs tens of seconds later. Put a TLS reverse proxy in front for instant scaling.",
+      "type": "warning"
+    },
+    {
+      "text": "Runners are Docker containers inside this LXC, which needs nesting and keyctl enabled.",
+      "type": "info"
+    }
+  ]
+}
