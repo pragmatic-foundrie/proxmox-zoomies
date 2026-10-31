@@ -38,9 +38,18 @@ THIN="discard=on,ssd=1,"
 
 # Zoomies settings, passed into the guest's first-boot installer
 var_zoomies_url="${var_zoomies_url:-}"
+# Zoomies release to install: "latest", or a tag such as v1.3.8. A pinned VM
+# stays on that release when `update` runs until /etc/zoomies-version changes.
+var_zoomies_version="${var_zoomies_version:-latest}"
 var_zoomies_admin_pass="${var_zoomies_admin_pass:-$(openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 20)}"
 # First boot installs packages from the internet; give slow links some room.
 ZOOMIES_INSTALL_TIMEOUT="${ZOOMIES_INSTALL_TIMEOUT:-1200}"
+
+if [[ "$var_zoomies_version" != "latest" && ! "$var_zoomies_version" =~ ^v?[0-9]+(\.[0-9]+)+$ ]]; then
+  msg_error "var_zoomies_version must be \"latest\" or a release tag such as v1.3.8"
+  exit 1
+fi
+[[ "$var_zoomies_version" =~ ^[0-9] ]] && var_zoomies_version="v${var_zoomies_version}"
 
 if ((${#var_zoomies_admin_pass} < 12)); then
   msg_error "var_zoomies_admin_pass must be at least 12 characters"
@@ -208,13 +217,16 @@ GUEST
 function write_guest_updater() {
   cat <<'GUEST' >"$1"
 #!/usr/bin/env bash
-# Updates Zoomies to the latest GitHub release.
+# Updates Zoomies to the latest GitHub release, or to the release pinned in
+# /etc/zoomies-version (a tag such as v1.3.8; "latest" or no file follows the
+# newest release).
 #   update                 download a newer release and run zoomies upgrade
 #   update --install-only  download the release without upgrading (first boot)
 set -euo pipefail
 
 REPO="eyupio/zoomies"
 VERSION_FILE="/root/.zoomies"
+PIN_FILE="/etc/zoomies-version"
 
 case "$(dpkg --print-architecture)" in
 amd64) arch=amd64 ;;
@@ -222,10 +234,16 @@ arm64) arch=arm64 ;;
 *) echo "Unsupported architecture: $(dpkg --print-architecture)" >&2; exit 1 ;;
 esac
 
-latest=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | jq -r '.tag_name')
-if [[ -z "$latest" || "$latest" == "null" ]]; then
-  echo "Could not determine the latest Zoomies release" >&2
-  exit 1
+pin=$(tr -d '[:space:]' <"$PIN_FILE" 2>/dev/null || true)
+if [[ -n "$pin" && "$pin" != "latest" ]]; then
+  latest="$pin"
+  echo "Zoomies is pinned to ${pin} (${PIN_FILE})"
+else
+  latest=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | jq -r '.tag_name')
+  if [[ -z "$latest" || "$latest" == "null" ]]; then
+    echo "Could not determine the latest Zoomies release" >&2
+    exit 1
+  fi
 fi
 current=$(cat "$VERSION_FILE" 2>/dev/null || true)
 
@@ -365,13 +383,16 @@ write_guest_updater "$TEMP_DIR/update"
   printf '%s' "$var_zoomies_admin_pass" >"$TEMP_DIR/admin-pass"
   printf '%s' "$var_zoomies_url" >"$TEMP_DIR/external-url"
 )
+printf '%s\n' "$var_zoomies_version" >"$TEMP_DIR/zoomies-version"
 vm_customize "Zoomies files" "$WORK_FILE" \
   --upload "$TEMP_DIR/update:/usr/local/bin/update" \
   --chmod "0755:/usr/local/bin/update" \
   --upload "$TEMP_DIR/admin-pass:/root/.zoomies-admin-pass" \
   --chmod "0600:/root/.zoomies-admin-pass" \
   --upload "$TEMP_DIR/external-url:/root/.zoomies-external-url" \
-  --chmod "0600:/root/.zoomies-external-url" || exit 1
+  --chmod "0600:/root/.zoomies-external-url" \
+  --upload "$TEMP_DIR/zoomies-version:/etc/zoomies-version" \
+  --chmod "0644:/etc/zoomies-version" || exit 1
 vm_firstboot_unit "$WORK_FILE" "zoomies-firstboot" "$TEMP_DIR/zoomies-firstboot" \
   --description "Install Docker and Zoomies on first boot" || exit 1
 rm -f "$TEMP_DIR/admin-pass" "$TEMP_DIR/external-url"
@@ -442,6 +463,7 @@ fi
 ZOOMIES_URL="${var_zoomies_url:-http://${VM_IP:-<vm-ip>}:8080}"
 vm_print_summary \
   "OS=${OS_DISPLAY}" \
+  "Zoomies=${var_zoomies_version}" \
   "URL=${ZOOMIES_URL}" \
   "Username=admin" \
   "Password=${var_zoomies_admin_pass}"
