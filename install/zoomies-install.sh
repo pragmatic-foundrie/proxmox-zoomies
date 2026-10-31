@@ -22,6 +22,18 @@ if [[ -z "${var_zoomies_admin_pass:-}" ]]; then
 fi
 
 msg_info "Configuring Zoomies"
+# The generated unit's seccomp filter denies @privileged and @resources, and in
+# an LXC the controller trips it: the kernel kills it with SIGSYS on every
+# start. Allow the standard service set and make any other filtered call fail
+# with EPERM instead of killing the process.
+mkdir -p /etc/systemd/system/zoomies.service.d
+cat <<EOF >/etc/systemd/system/zoomies.service.d/10-lxc-seccomp.conf
+[Service]
+SystemCallFilter=
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+EOF
+systemctl daemon-reload
 # The answer file holds the admin password, so it lives only for the init run.
 # Single quotes keep every password character literal in YAML; ' is written as ''.
 admin_pass_yaml=${var_zoomies_admin_pass//\'/\'\'}
