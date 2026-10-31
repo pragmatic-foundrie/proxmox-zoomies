@@ -250,22 +250,84 @@ GUEST
 }
 
 # ==============================================================================
+# HOST HELPERS
+# ==============================================================================
+# Guest-agent replies are JSON. Read them with Perl's core JSON::PP, which every
+# Proxmox host has, rather than jq, which has to be installed and that install
+# can fail.
+
+# zoomies_guest_exec <timeout> <command> [args]...
+# Prints the command's stdout and returns its exit code (124 if still running).
+function zoomies_guest_exec() {
+  local timeout="$1" json
+  shift
+  json="$(qm guest exec "$VMID" --timeout "$timeout" -- "$@" 2>/dev/null)" || true
+  [[ -n "$json" ]] || return 1
+  perl -MJSON::PP -e '
+    my $j = eval { decode_json(join "", <STDIN>) } or exit 1;
+    print $j->{"out-data"} // "";
+    exit($j->{exited} ? ($j->{exitcode} // 1) : 124);' <<<"$json"
+}
+
+# Sets VM_IP from the NIC with the VM's MAC, so docker0 is never picked.
+function zoomies_wait_for_ip() {
+  local deadline=$((SECONDS + ${1:-120}))
+  VM_IP=""
+  msg_info "Waiting for the VM's IP address"
+  while ((SECONDS < deadline)); do
+    VM_IP="$(qm guest cmd "$VMID" network-get-interfaces 2>/dev/null | perl -MJSON::PP -e '
+      my $mac = lc shift;
+      my $j = eval { decode_json(join "", <STDIN>) } or exit 1;
+      for my $if (@$j) {
+        next unless lc($if->{"hardware-address"} // "") eq $mac;
+        for my $a (@{ $if->{"ip-addresses"} // [] }) {
+          if ($a->{"ip-address-type"} eq "ipv4") { print $a->{"ip-address"}; exit 0 }
+        }
+      }
+      exit 1;' "$MAC")" && break
+    sleep 3
+  done
+  if [[ -n "$VM_IP" ]]; then
+    msg_ok "VM IP address ${CL}${BL}${VM_IP}${CL}"
+  else
+    msg_warn "No IP address yet; check the VM's Summary page in Proxmox"
+  fi
+}
+
+# virt-customize stages the installer into the image, so it is required. When
+# apt cannot install it, show apt's own error instead of a one-line failure.
+function zoomies_ensure_virt_customize() {
+  command -v virt-customize >/dev/null 2>&1 && return 0
+  local out
+  msg_info "Installing libguestfs-tools on the Proxmox host"
+  if out="$(apt-get update 2>&1; DEBIAN_FRONTEND=noninteractive apt-get install -y libguestfs-tools 2>&1)"; then
+    msg_ok "Installed libguestfs-tools"
+    return 0
+  fi
+  msg_error "Could not install libguestfs-tools (needed to prepare the VM image). apt said:"
+  printf '%s\n' "$out" | grep -E '^(E|W|Err):|dpkg|lock' | tail -n 15 >&2
+  echo -e "${INFO}${YW}Common causes:${CL}
+${TAB}- The pve-enterprise / ceph enterprise repo is enabled without a subscription.
+${TAB}  Disable it under Node > Updates > Repositories and add the no-subscription repo.
+${TAB}- Another apt run holds the lock; wait for it to finish.
+${TAB}- An interrupted upgrade; run: dpkg --configure -a
+${INFO}${YW}Fix that, check with: apt-get install -y libguestfs-tools, then rerun this script.${CL}"
+  exit 1
+}
+
+# ==============================================================================
 # MAIN EXECUTION
 # ==============================================================================
 header_info
 
 vm_preflight
-vm_require_tools jq
 
 vm_start_script "Use Default Settings?" 10 58
 post_to_api_vm
 
 vm_select_storage "$HN"
 
-vm_ensure_virt_customize || {
-  msg_error "virt-customize is required to stage the Zoomies installer into the image"
-  exit 1
-}
+zoomies_ensure_virt_customize
 
 # ==============================================================================
 # IMAGE DOWNLOAD
@@ -359,7 +421,7 @@ if [ "$START_VM" = "yes" ]; then
   msg_info "Installing Docker and Zoomies in the VM (this takes a few minutes)"
   deadline=$((SECONDS + ZOOMIES_INSTALL_TIMEOUT))
   while ((SECONDS < deadline)); do
-    INSTALL_STATE="$(vm_guest_exec "$VMID" 15 systemctl is-active zoomies-firstboot.service 2>/dev/null | tr -d '[:space:]')" || true
+    INSTALL_STATE="$(zoomies_guest_exec 15 systemctl is-active zoomies-firstboot.service 2>/dev/null | tr -d '[:space:]')" || true
     [[ "$INSTALL_STATE" == "active" || "$INSTALL_STATE" == "failed" ]] && break
     sleep 10
   done
@@ -367,11 +429,11 @@ if [ "$START_VM" = "yes" ]; then
   active) msg_ok "Installed Docker and Zoomies" ;;
   failed)
     msg_error "The Zoomies install inside the VM failed"
-    vm_guest_exec "$VMID" 15 tail -n 20 /var/log/zoomies-install.log 2>/dev/null || true
+    zoomies_guest_exec 15 tail -n 20 /var/log/zoomies-install.log 2>/dev/null || true
     ;;
   *) msg_warn "Zoomies is still installing; follow it with: tail -f /var/log/zoomies-install.log" ;;
   esac
-  vm_wait_for_ip || true
+  zoomies_wait_for_ip 120
 fi
 
 # ==============================================================================
