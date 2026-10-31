@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2021-2026 community-scripts ORG
-# Author: jt-pragmatic
-# License: MIT | https://github.com/community-scripts/DevScripts/raw/main/LICENSE
+# Copyright (C) 2026 Pragmatic Foundrie
+# SPDX-License-Identifier: AGPL-3.0-only
+# Derived in part from community-scripts ProxmoxVE (MIT), see NOTICE
 # Source: https://github.com/eyupio/zoomies
 
 source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"
@@ -23,6 +23,8 @@ fi
 
 msg_info "Configuring Zoomies"
 # The answer file holds the admin password, so it lives only for the init run.
+# Single quotes keep every password character literal in YAML; ' is written as ''.
+admin_pass_yaml=${var_zoomies_admin_pass//\'/\'\'}
 cat <<EOF >/root/zoomies-answers.yaml
 mode: single
 deployment: native
@@ -35,13 +37,18 @@ github:
   skip: true
 admin:
   username: admin
-  password: "${var_zoomies_admin_pass}"
+  password: '${admin_pass_yaml}'
 service:
   manager: systemd
   enable: true
   start: true
 EOF
-$STD zoomies init --answers /root/zoomies-answers.yaml --yes --no-tune --no-animation
+# catch_errors would exit before a plain rm runs, so clean up the answer file on failure too.
+$STD zoomies init --answers /root/zoomies-answers.yaml --yes --no-tune --no-animation || {
+  rm -f /root/zoomies-answers.yaml
+  msg_error "zoomies init failed"
+  exit 1
+}
 rm -f /root/zoomies-answers.yaml
 msg_ok "Configured Zoomies"
 

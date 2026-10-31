@@ -22,7 +22,7 @@
 On the Proxmox host shell:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/jt-pragmatic/proxmox-runaway/main/ct/zoomies.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/pragmatic-foundrie/proxmox-zoomies/main/ct/zoomies.sh)"
 ```
 
 Optional settings:
@@ -39,3 +39,13 @@ Without a public `https://` external URL, GitHub can't deliver webhooks and Zoom
 ## Updating
 
 Run the same command inside the container (or `update` from its console). It deploys the newest release binary and runs `zoomies upgrade --no-download`, which backs up the database, updates the service units and restarts them.
+
+## Security notes
+
+- Zoomies serves plain HTTP on port 8080 by default, so the admin password crosses your network unencrypted. Put a TLS reverse proxy in front before exposing it beyond your LAN.
+- Runners are Docker containers, so the LXC needs `nesting` and `keyctl`. That widens what the container can do compared with a plain LXC.
+- The Zoomies binary comes from the latest GitHub release without a pinned checksum. Only update from releases you trust.
+
+## License
+
+Licensed under the GNU Affero General Public License v3.0 only. See [LICENSE](LICENSE). Portions are derived from community-scripts ProxmoxVE (MIT). See [NOTICE](NOTICE).
