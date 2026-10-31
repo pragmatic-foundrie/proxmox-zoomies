@@ -1,0 +1,58 @@
+{
+  "name": "Runaway",
+  "slug": "runaway",
+  "categories": [
+    20
+  ],
+  "date_created": "2026-10-31",
+  "type": "addon",
+  "updateable": true,
+  "privileged": false,
+  "interface_port": 3000,
+  "documentation": "https://www.runaway.sh/docs",
+  "website": "https://www.runaway.sh/",
+  "repository": null,
+  "logo": null,
+  "description": "Runaway is a self-hosted orchestrator for ephemeral GitHub Actions runners. It watches your GitHub orgs for queued jobs and scales Docker-based runner pools on machines you already own, down to zero when idle.",
+  "install_methods": [
+    {
+      "type": "default",
+      "script": "tools/addon/runaway.sh",
+      "config_path": "/opt/runaway/.env",
+      "resources": {
+        "cpu": null,
+        "ram": null,
+        "hdd": null,
+        "os": null,
+        "version": null
+      }
+    }
+  ],
+  "default_credentials": {
+    "username": null,
+    "password": null
+  },
+  "app_vars": [
+    {
+      "name": "var_runaway_repo",
+      "label": "Runaway Repository URL",
+      "type": "text",
+      "required": true,
+      "help": "Git URL of the Runaway repository from the official quickstart"
+    }
+  ],
+  "notes": [
+    {
+      "text": "Run this addon inside an existing Debian LXC with nesting enabled, such as the Docker LXC. Runaway starts runner containers through Docker, so it is installed as a Docker Compose stack.",
+      "type": "info"
+    },
+    {
+      "text": "Create your admin account on first access, then add a GitHub org with a classic PAT and create a scale set.",
+      "type": "info"
+    },
+    {
+      "text": "Runaway is licensed under BSL 1.1 (each release converts to Apache 2.0). Check the license before commercial use.",
+      "type": "warning"
+    }
+  ]
+}
